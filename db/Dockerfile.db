@@ -1,0 +1,9 @@
+# Use a lightweight Alpine image
+FROM alpine:latest
+
+# Install bash (optional, for debug)
+RUN apk add --no-cache bash
+
+# Keep the container running
+CMD ["sh", "-c", "while true; do sleep 60; done"]
+

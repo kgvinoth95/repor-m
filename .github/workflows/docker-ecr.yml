@@ -1,0 +1,55 @@
+name: Build and Push Docker Images to ECR
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    env:
+      AWS_REGION: us-east-1
+      WEB_IMAGE_TAG: v1
+      DB_IMAGE_TAG: v1
+
+    steps:
+    # 1️⃣ Checkout code
+    - name: Checkout repository
+      uses: actions/checkout@v3
+
+    # 2️⃣ Configure AWS credentials
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v2
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: ${{ env.AWS_REGION }}
+
+    # 3️⃣ Login to ECR
+    - name: Login to Amazon ECR
+      id: ecr-login
+      run: |
+        aws ecr get-login-password --region $AWS_REGION | \
+        docker login --username AWS --password-stdin ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.$AWS_REGION.amazonaws.com
+
+    # 4️⃣ Build and push web image
+    - name: Build and push Web image
+      run: |
+        docker build -t web-app ./web
+        docker tag web-app:latest ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.$AWS_REGION.amazonaws.com/web-app:${WEB_IMAGE_TAG}
+        docker push ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.$AWS_REGION.amazonaws.com/web-app:${WEB_IMAGE_TAG}
+
+    # 5️⃣ Build and push DB image
+    - name: Build and push DB image
+      run: |
+        docker build -t db-app ./db
+        docker tag db-app:latest ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.$AWS_REGION.amazonaws.com/db-app:${DB_IMAGE_TAG}
+        docker push ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.$AWS_REGION.amazonaws.com/db-app:${DB_IMAGE_TAG}
+
+    # Optional: Terraform Apply (uncomment if needed)
+    # - name: Terraform Init & Apply
+    #   run: |
+    #     terraform init
+    #     terraform apply -auto-approve
+
