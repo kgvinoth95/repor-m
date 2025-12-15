@@ -12,6 +12,9 @@ jobs:
       AWS_REGION: us-east-1
       WEB_IMAGE_TAG: v1
       DB_IMAGE_TAG: v1
+      ECS_CLUSTER_NAME: app-cluster
+      WEB_SERVICE_NAME: web-service
+      DB_SERVICE_NAME: db-service
 
     steps:
     # 1️⃣ Checkout the repository
@@ -26,22 +29,43 @@ jobs:
         aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
         aws-region: ${{ env.AWS_REGION }}
 
-    # 3️⃣ Login to ECR
+    # 3️⃣ Login to Amazon ECR
     - name: Login to Amazon ECR
       run: |
         aws ecr get-login-password --region $AWS_REGION | \
-        docker login --username AWS --password-stdin ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.$AWS_REGION.amazonaws.com
+        docker login --username AWS --password-stdin \
+        ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.$AWS_REGION.amazonaws.com
 
     # 4️⃣ Build and push Web image
     - name: Build and push Web image
       run: |
         docker build -f ./web/Dockerfile.web -t web-app ./web
-        docker tag web-app:latest ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.$AWS_REGION.amazonaws.com/web-app:${WEB_IMAGE_TAG}
-        docker push ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.$AWS_REGION.amazonaws.com/web-app:${WEB_IMAGE_TAG}
+        docker tag web-app:latest \
+        ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.$AWS_REGION.amazonaws.com/web-app:${WEB_IMAGE_TAG}
+        docker push \
+        ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.$AWS_REGION.amazonaws.com/web-app:${WEB_IMAGE_TAG}
 
     # 5️⃣ Build and push DB image
     - name: Build and push DB image
       run: |
         docker build -f ./db/Dockerfile.db -t db-app ./db
-        docker tag db-app:latest ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.$AWS_REGION.amazonaws.com/db-app:${DB_IMAGE_TAG}
-        docker push ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.$AWS_REGION.amazonaws.com/db-app:${DB_IMAGE_TAG}
+        docker tag db-app:latest \
+        ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.$AWS_REGION.amazonaws.com/db-app:${DB_IMAGE_TAG}
+        docker push \
+        ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.$AWS_REGION.amazonaws.com/db-app:${DB_IMAGE_TAG}
+
+    # 6️⃣ Force ECS Web Service Redeployment
+    - name: Redeploy Web ECS Service
+      run: |
+        aws ecs update-service \
+          --cluster $ECS_CLUSTER_NAME \
+          --service $WEB_SERVICE_NAME \
+          --force-new-deployment
+
+    # 7️⃣ Force ECS DB Service Redeployment
+    - name: Redeploy DB ECS Service
+      run: |
+        aws ecs update-service \
+          --cluster $ECS_CLUSTER_NAME \
+          --service $DB_SERVICE_NAME \
+          --force-new-deployment
